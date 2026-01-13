@@ -6,3 +6,4 @@ pdfplumber
 google-generativeai
 pandas
 openpyxl
+psycopg2-binary

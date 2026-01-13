@@ -17,7 +17,14 @@ from pdf_parser import parse_tax_calendar, extract_text_from_pdf
 sqlite_file_name = "database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-engine = create_engine(sqlite_url, echo=False)
+# Check for DATABASE_URL (Render PostgreSQL)
+database_url = os.environ.get("DATABASE_URL")
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+connection_url = database_url if database_url else sqlite_url
+
+engine = create_engine(connection_url, echo=False)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -31,9 +38,11 @@ app = FastAPI()
 # Seed Data (Blue Clients from Screenshot)
 def seed_clients():
     with Session(engine) as session:
+        # 1. Seed Clients
         existing = session.exec(select(Client)).first()
+        clients_db = []
         if not existing:
-            clients = [
+            clients_data = [
                 Client(name="LAS PAIVA SA", cuit="30-71238604-1"),
                 Client(name="Enrique Olivero", cuit="20-24961998-2"),
                 Client(name="EPC S.A.S.", cuit="30-71582929-7"),
@@ -42,10 +51,47 @@ def seed_clients():
                 Client(name="ABASTO EL 50 SAS", cuit="30-71694554-1"),
                 Client(name="FARMACIA SAN LUCAS SRL", cuit="33-70804828-9")
             ]
-            for c in clients:
+            for c in clients_data:
                 session.add(c)
             session.commit()
-            print("Seeded clients from screenshot.")
+            print("Seeded clients.")
+            
+            # Retrieve for obligation linking
+            clients_db = session.exec(select(Client)).all()
+        else:
+             clients_db = session.exec(select(Client)).all()
+
+        # 2. Seed Period & Obligations (if none exist)
+        existing_ob = session.exec(select(Obligation)).first()
+        if not existing_ob and clients_db:
+            # Create Period
+            period = TaxPeriod(name="Enero 2026", month=1, year=2026)
+            session.add(period)
+            session.commit()
+            session.refresh(period)
+
+            # Create Obligations
+            import random
+            from datetime import date, timedelta
+            
+            for client in clients_db:
+                # Randomize status
+                status = random.choice(["Pending", "Pending", "Presented"]) 
+                due_date = date(2026, 1, 10 + random.randint(0, 5))
+                assignee = random.choice(["Veronica", "Maria Cruz", "Sin Asignar"])
+                
+                ob = Obligation(
+                    client_id=client.id,
+                    period_id=period.id,
+                    due_date=due_date,
+                    status=status,
+                    tax_name="IVA", # Default tax
+                    assignee=assignee
+                )
+                session.add(ob)
+            
+            session.commit()
+            print("Seeded obligations.")
 
 @app.on_event("startup")
 def on_startup():
