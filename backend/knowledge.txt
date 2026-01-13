@@ -1,0 +1,15 @@
+INFORMACIÓN CLAVE DEL ESTUDIO CONTABLE Y NORMATIVAS:
+
+1. ARCA (Agencia de Recaudación y Control Aduanero):
+   - Es el nuevo organismo que reemplaza a la AFIP (Administración Federal de Ingresos Públicos).
+   - Mantiene las mismas fechas de vencimiento y normativas por el momento.
+
+2. Vencimientos Generales:
+   - IVA: Suele vencer entre el 18 y 22 de cada mes, según terminación de CUIT.
+   - Ingresos Brutos (IIBB): Varía según jurisdicción (CABA/ARBA), generalmente a mediados de mes.
+
+3. Procedimientos Internos:
+   - Para clientes nuevos (Monotributo), solicitar Clave Fiscal Nivel 3.
+   - Antes de "Marcar Presentado", verificar el VEP generado en la web de ARCA.
+
+ESTE DOCUMENTO ES LA VERDAD SUPREMA PARA TUS RESPUESTAS. ÚSALO PARA CONTESTAR DUDAS TÉCNICAS.
