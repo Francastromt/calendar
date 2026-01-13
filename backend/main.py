@@ -4,7 +4,11 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from typing import List
 import shutil
 import os
+import sys
 from datetime import date
+
+# Fix Import Path for Render/Imports
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from models import Client, TaxPeriod, TaxRule, Obligation
 from pdf_parser import parse_tax_calendar, extract_text_from_pdf
