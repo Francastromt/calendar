@@ -34,6 +34,20 @@
             </div>
 
             <div class="flex gap-3">
+                <!-- Admin Button -->
+                <button onclick="openAdminModal()"
+                    class="group bg-white border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-700 w-12 h-12 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center"
+                    title="Administrar Conocimiento">
+                    <i class="fas fa-cog group-hover:rotate-90 transition-transform duration-500"></i>
+                </button>
+
+                <!-- New Client Button -->
+                <button onclick="openAddClientModal()"
+                    class="group bg-indigo-50 border border-indigo-100 hover:border-indigo-500 hover:bg-indigo-600 hover:text-white text-indigo-700 px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-indigo-500/30 font-semibold flex items-center gap-2.5">
+                    <i class="fas fa-plus group-hover:scale-110 transition-transform"></i>
+                    <span>Nuevo Cliente</span>
+                </button>
+
                 <!-- Excel Upload -->
                 <label
                     class="group cursor-pointer bg-emerald-50 border border-emerald-100 hover:border-emerald-500 hover:bg-emerald-500 hover:text-white text-emerald-700 px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-emerald-500/30 font-semibold flex items-center gap-2.5">
@@ -138,6 +152,15 @@
                         <option value="week">Esta Semana</option>
                         <option value="month">Este Mes</option>
                     </select>
+                    <select id="filter-assignee"
+                        class="px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 hover:bg-white focus:bg-white cursor-pointer outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all font-medium text-slate-600">
+                        <option value="all">👤 Responsable: Todos</option>
+                        <option value="Veronica">Veronica</option>
+                        <option value="Maria Cruz">Maria Cruz</option>
+                        <option value="Lautaro">Lautaro</option>
+                        <option value="Belen">Belen</option>
+                        <option value="Sin Asignar">Sin Asignar</option>
+                    </select>
                 </div>
             </div>
 
@@ -152,6 +175,7 @@
                             <th class="p-5">Impuesto</th>
                             <th class="p-5">CUIT</th>
                             <th class="p-5">Periodo</th>
+                            <th class="p-5">Responsable</th>
                             <th class="p-5">Estado</th>
                             <th class="p-5 pr-8 text-right">Acción</th>
                         </tr>
@@ -321,9 +345,138 @@
                 <span class="relative inline-flex rounded-full h-4 w-4 bg-sky-500 border-2 border-white"></span>
             </span>
         </button>
+
+        <!-- Admin Knowledge Modal -->
+        <!-- ADD CLIENT MODAL -->
+        <div id="add-client-modal"
+            class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
+                <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg">Nuevo Cliente</h3>
+                    <button onclick="closeAddClientModal()" class="text-white/70 hover:text-white"><i
+                            class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6 flex flex-col gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre / Razón
+                            Social</label>
+                        <input type="text" id="new-client-name"
+                            class="w-full p-2 border border-slate-300 rounded font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Ej: Empresa S.A.">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">CUIT</label>
+                        <input type="text" id="new-client-cuit"
+                            class="w-full p-2 border border-slate-300 rounded font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="30-12345678-9">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo</label>
+                        <select id="new-client-type"
+                            class="w-full p-2 border border-slate-300 rounded font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="Responsable Inscripto">Responsable Inscripto</option>
+                            <option value="Monotributo">Monotributo</option>
+                            <option value="Exento">Exento</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Impuestos (Separados por
+                            coma)</label>
+                        <input type="text" id="new-client-taxes"
+                            class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            value="IVA, Ganancias">
+                    </div>
+
+                    <button onclick="submitNewClient()"
+                        class="mt-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-500/30">
+                        <i class="fas fa-save"></i> Guardar Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMIN MODAL -->
+        <div id="admin-modal"
+            class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+            <div
+                class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in flex flex-col max-h-[85vh]">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-brain text-indigo-600"></i>
+                        <h3 class="font-bold text-slate-800 text-lg">Administrar Conocimiento IA</h3>
+                    </div>
+                    <button onclick="closeAdminModal()" class="text-slate-400 hover:text-slate-600 transition"><i
+                            class="fas fa-times"></i></button>
+                </div>
+
+                <div class="p-6 flex-1 overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <label
+                            class="group cursor-pointer bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 px-4 py-2 rounded-lg transition text-sm font-bold flex items-center gap-2">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Subir PDF de Conocimiento</span>
+                            <input type="file" id="knowledge-pdf-upload" class="hidden" accept=".pdf">
+                        </label>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 mb-4 flex items-start gap-3">
+                        <i class="fas fa-lightbulb text-amber-500 mt-0.5"></i>
+                        <p class="text-sm text-slate-600">
+                            Lo que escribas aquí será tomado como <strong>verdad absoluta</strong> por el asistente.
+                            Úsalo para definir reglas internas, fechas especiales o aclarar dudas frecuentes.
+                        </p>
+                    </div>
+                    <textarea id="knowledge-editor"
+                        class="w-full h-[400px] p-4 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm text-slate-700 focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 outline-none resize-none"
+                        placeholder="Cargando conocimiento actual..."></textarea>
+                </div>
+
+                <div class="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                    <button onclick="closeAdminModal()"
+                        class="px-4 py-2 text-slate-500 font-medium hover:text-slate-700 transition">Cancelar</button>
+                    <button onclick="saveKnowledge()"
+                        class="px-5 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition transform active:scale-95 flex items-center gap-2">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <!-- OVERDUE ALERT MODAL -->
+    <div id="overdue-modal"
+        class="hidden fixed inset-0 bg-red-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-in border-2 border-red-500">
+            <div class="bg-red-500 p-5 text-white flex gap-4 items-center">
+                <div class="bg-white/20 p-3 rounded-full animate-pulse">
+                    <i class="fas fa-exclamation-triangle fa-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-xl tracking-tight">¡ATENCIÓN! VENCIMIENTOS PENDIENTES</h3>
+                    <p class="text-red-100 text-sm font-medium">Hay obligaciones vencidas sin presentar.</p>
+                </div>
+            </div>
+
+            <div class="p-6 max-h-[60vh] overflow-y-auto bg-red-50/30">
+                <p class="text-slate-600 mb-4 text-sm">Las siguientes empresas tienen impuestos vencidos. Por favor
+                    regularizar inmediatamente:</p>
+                <div id="overdue-list" class="flex flex-col gap-2">
+                    <!-- JS Injected -->
+                </div>
+            </div>
+
+            <div class="p-5 border-t border-red-100 bg-red-50 flex justify-end">
+                <button onclick="closeOverdueModal()"
+                    class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-red-500/30 transition transform hover:scale-105 active:scale-95">
+                    Entendido, voy a revisarlo
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=6"></script>
 </body>
 
 </html>

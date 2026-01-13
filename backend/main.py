@@ -7,7 +7,7 @@ import os
 from datetime import date
 
 from models import Client, TaxPeriod, TaxRule, Obligation
-from pdf_parser import parse_tax_calendar
+from pdf_parser import parse_tax_calendar, extract_text_from_pdf
 
 # Database Setup
 sqlite_file_name = "database.db"
@@ -148,6 +148,26 @@ async def upload_calendar(file: UploadFile = File(...), session: Session = Depen
              
         raise HTTPException(status_code=500, detail=str(e))
 
+    session.add(new_client)
+    session.commit()
+    session.refresh(new_client)
+    return new_client
+
+@app.delete("/api/clients/{client_id}")
+def delete_client(client_id: int, session: Session = Depends(get_session)):
+    client = session.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Cascade delete obligations
+    obligations = session.exec(select(Obligation).where(Obligation.client_id == client_id)).all()
+    for ob in obligations:
+        session.delete(ob)
+        
+    session.delete(client)
+    session.commit()
+    return {"message": "Client deleted"}
+
 @app.post("/api/upload-clients")
 async def upload_clients(file: UploadFile, session: Session = Depends(get_session)):
     try:
@@ -227,6 +247,7 @@ def get_dashboard(session: Session = Depends(get_session)):
             "tax_name": ob.tax_name, # NEW
             "due_date": ob.due_date,
             "status": ob.status,
+            "assignee": ob.assignee, # NEW
             "days_left": (ob.due_date - date.today()).days
         })
     return data
@@ -236,7 +257,7 @@ from pydantic import BaseModel
 
 # Configure Gemini
 # Configure Gemini
-GENAI_KEY = os.getenv("GENAI_KEY")
+GENAI_KEY = os.getenv("GENAI_KEY", "AIzaSyB5qpyeK4Y87w1flk5hOxohXv0-E-H76A0")
 if not GENAI_KEY:
     print("WARNING: GENAI_KEY not found in environment variables.")
 genai.configure(api_key=GENAI_KEY)
@@ -307,6 +328,88 @@ def toggle_status(ob_id: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Obligation not found")
     
     ob.status = "Presented" if ob.status == "Pending" else "Pending"
+    session.add(ob)
+    session.commit()
+    return ob
+
+class KnowledgeRequest(BaseModel):
+    content: str
+
+@app.get("/api/knowledge")
+def get_knowledge():
+    try:
+        if os.path.exists("knowledge.txt"):
+            with open("knowledge.txt", "r", encoding="utf-8") as f:
+                return {"content": f.read()}
+        return {"content": ""}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/knowledge")
+def save_knowledge(req: KnowledgeRequest):
+    try:
+        with open("knowledge.txt", "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return {"message": "Conocimiento actualizado explícitamente."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/knowledge/upload-pdf")
+async def upload_knowledge_pdf(file: UploadFile = File(...)):
+    temp_path = f"temp_knowledge_{file.filename}"
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        extracted_text = extract_text_from_pdf(temp_path)
+        
+        # Append to knowledge.txt
+        current_content = ""
+        if os.path.exists("knowledge.txt"):
+            with open("knowledge.txt", "r", encoding="utf-8") as f:
+                current_content = f.read()
+        
+        new_content = current_content + f"\n\n--- CONTENIDO EXTRAÍDO DE {file.filename} ---\n" + extracted_text
+        
+        with open("knowledge.txt", "w", encoding="utf-8") as f:
+            f.write(new_content)
+            
+        os.remove(temp_path)
+        return {"message": "PDF procesado y añadido al conocimiento.", "text_length": len(extracted_text)}
+
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+
+# ... imports
+from sqlalchemy import text
+
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+    # Migration for assignee column
+    try:
+        with Session(engine) as session:
+            session.exec(text("ALTER TABLE obligation ADD COLUMN assignee TEXT DEFAULT 'Sin Asignar'"))
+            session.commit()
+            print("MIGRATION: Added assignee column to Obligation table.")
+    except Exception as e:
+        # Common if column already exists
+        print(f"MIGRATION CHECK: {e}")
+
+# ... (existing endpoints)
+
+class AssignmentRequest(BaseModel):
+    assignee: str
+
+@app.post("/api/obligations/{ob_id}/assign")
+def assign_obligation(ob_id: int, req: AssignmentRequest, session: Session = Depends(get_session)):
+    ob = session.get(Obligation, ob_id)
+    if not ob:
+        raise HTTPException(status_code=404, detail="Obligation not found")
+    
+    ob.assignee = req.assignee
     session.add(ob)
     session.commit()
     return ob

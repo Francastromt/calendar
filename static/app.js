@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = "/api";
 
 // DOM Elements
 const obligationsList = document.getElementById('obligations-list');
@@ -20,6 +20,7 @@ async function fetchDashboard() {
         applyFilters();
         renderKPIs(data);
         renderCalendar(); // Update calendar
+        checkOverdueAlert(data); // Auto-check for alerts
     } catch (e) {
         console.error("Error fetching dashboard:", e);
     }
@@ -30,9 +31,14 @@ async function fetchClients() {
         const res = await fetch(`${API_URL}/clients`);
         const data = await res.json();
         clientsListEl.innerHTML = data.map(c => `
-            <li class="flex justify-between p-3 bg-slate-50 rounded border border-slate-200 text-sm">
-                <span class="font-bold text-slate-700">${c.name}</span>
-                <span class="font-mono text-slate-500">${c.cuit}</span>
+            <li class="flex justify-between items-center p-3 bg-slate-50 rounded border border-slate-200 text-sm group hover:border-red-200 transition">
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-700">${c.name}</span>
+                    <span class="font-mono text-xs text-slate-400">${c.cuit}</span>
+                </div>
+                <button onclick="deleteClient(${c.id})" class="text-slate-300 hover:text-red-500 transition px-2" title="Eliminar Cliente">
+                    <i class="fas fa-trash"></i>
+                </button>
             </li>
         `).join('');
     } catch (e) {
@@ -40,14 +46,19 @@ async function fetchClients() {
     }
 }
 
+// DOM Elements (filters)
+const filterAssignee = document.getElementById('filter-assignee');
+
+// ... (fetchDashboard) ...
+
 function applyFilters() {
     const search = filterSearch.value.toLowerCase();
     const status = filterStatus.value;
     const time = filterTime.value;
+    const assignee = filterAssignee.value;
 
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+    // ... (dates logic) ...
 
     const filtered = allObligations.filter(item => {
         // Search
@@ -60,11 +71,13 @@ function applyFilters() {
         if (status === 'pending' && item.status !== 'Pending') return false;
         if (status === 'late' && !isLate) return false;
 
+        // Assignee Filter
+        const itemAssignee = item.assignee || "Sin Asignar";
+        if (assignee !== 'all' && itemAssignee !== assignee) return false;
+
         // Time
         const due = new Date(item.due_date);
         if (time === 'week') {
-            // Simple check: is within next 7 days? or calendar week?
-            // Let's use "Next 7 days" for utility
             const diffTime = due - new Date();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays < 0 || diffDays > 7) return false;
@@ -83,6 +96,7 @@ function applyFilters() {
 filterSearch.addEventListener('input', applyFilters);
 filterStatus.addEventListener('change', applyFilters);
 filterTime.addEventListener('change', applyFilters);
+filterAssignee.addEventListener('change', applyFilters);
 
 function renderKPIs(data) {
     const pending = data.filter(d => d.status === 'Pending').length;
@@ -101,25 +115,40 @@ function renderKPIs(data) {
     }
 }
 
+const TEAM = ["Veronica", "Maria Cruz", "Lautaro", "Belen"];
+
 function renderObligations(data) {
     if (data.length === 0) {
-        obligationsList.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 italic">No se encontraron resultados.</td></tr>`;
+        obligationsList.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400 italic">No se encontraron resultados.</td></tr>`;
         return;
     }
 
     obligationsList.innerHTML = data.map(item => {
         const isLate = new Date(item.due_date) < new Date() && item.status === 'Pending';
         const isDone = item.status === 'Presented';
+        const currentAssignee = item.assignee || "Sin Asignar";
 
         let statusBadge = '';
         if (isDone) statusBadge = `<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold border border-green-200">Presentado</span>`;
         else if (isLate) statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-bold border border-red-200">Vencido</span>`;
         else statusBadge = `<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-bold border border-yellow-200">Pendiente</span>`;
 
+        // Assignee Dropdown HTML
+        const assigneeOptions = TEAM.map(name => `
+            <option value="${name}" ${currentAssignee === name ? 'selected' : ''}>${name}</option>
+        `).join('');
+
+        const assigneeSelect = `
+            <select onchange="updateAssignee(${item.id}, this.value)" class="text-xs border-none bg-transparent font-medium text-slate-600 focus:ring-0 cursor-pointer hover:bg-slate-100 rounded p-1">
+                <option value="Sin Asignar" ${currentAssignee === 'Sin Asignar' ? 'selected' : ''}>Sin Asignar</option>
+                ${assigneeOptions}
+            </select>
+        `;
+
         return `
             <tr class="hover:bg-slate-50 transition group">
                 <td class="p-4 font-mono font-bold ${isLate ? 'text-red-500' : 'text-slate-700'}">
-                    ${new Date(item.due_date).toLocaleDateString('es-AR')}
+                    ${formatDate(item.due_date)}
                 </td>
                 <td class="p-4 font-bold text-slate-700">${item.client_name}</td>
                 <td class="p-4 text-xs text-slate-500">${item.client_type || 'RI'}</td>
@@ -128,6 +157,14 @@ function renderObligations(data) {
                 </td>
                 <td class="p-4 font-mono text-slate-500 text-xs">${item.cuit}</td>
                 <td class="p-4 text-slate-600">${item.period}</td>
+                <td class="p-4">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">
+                            ${currentAssignee === 'Sin Asignar' ? '?' : currentAssignee.charAt(0)}
+                        </div>
+                        ${assigneeSelect}
+                    </div>
+                </td>
                 <td class="p-4">${statusBadge}</td>
                 <td class="p-4 text-right">
                     <button onclick="toggleStatus(${item.id})" class="text-xs font-bold px-3 py-1 rounded border transition ${isDone ? 'border-slate-300 text-slate-400 hover:bg-slate-100' : 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-sm'}">
@@ -137,6 +174,24 @@ function renderObligations(data) {
             </tr>
         `;
     }).join('');
+}
+
+async function updateAssignee(id, newAssignee) {
+    try {
+        await fetch(`${API_URL}/obligations/${id}/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignee: newAssignee })
+        });
+
+        // Update local state without full refresh for speed
+        const item = allObligations.find(o => o.id === id);
+        if (item) item.assignee = newAssignee;
+
+    } catch (e) {
+        alert("Error asignando responsable");
+        console.error(e);
+    }
 }
 
 async function toggleStatus(id) {
@@ -306,6 +361,7 @@ function openDayModal(dateStr, obligations) {
                     <div class="flex gap-2 items-center">
                         <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-1.5 rounded">${ob.tax_name}</span>
                         <span class="text-xs text-slate-400">${ob.cuit}</span>
+                        <span class="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 rounded border border-blue-100">${ob.assignee || 'Sin Asignar'}</span>
                     </div>
                 </div>
                  <button onclick="toggleStatus(${ob.id}); closeDayModal();" 
@@ -459,4 +515,222 @@ function appendMessage(sender, text) {
 
     chatMessages.appendChild(div);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// --- ADMIN PANEL LOGIC ---
+
+async function openAdminModal() {
+    const modal = document.getElementById('admin-modal');
+    const editor = document.getElementById('knowledge-editor');
+
+    modal.classList.remove('hidden');
+
+    // Fetch current knowledge
+    try {
+        editor.value = "Cargando...";
+        editor.disabled = true;
+
+        const res = await fetch(`${API_URL}/knowledge`);
+        if (!res.ok) throw new Error("Error fetching knowledge");
+
+        const data = await res.json();
+        editor.value = data.content;
+    } catch (e) {
+        editor.value = "Error al cargar el conocimiento. Por favor intenta de nuevo.";
+        console.error(e);
+    } finally {
+        editor.disabled = false;
+        editor.focus();
+    }
+}
+
+function closeAdminModal() {
+    const modal = document.getElementById('admin-modal');
+    modal.classList.add('hidden');
+}
+
+async function saveKnowledge() {
+    const editor = document.getElementById('knowledge-editor');
+    const content = editor.value;
+
+    try {
+        // Show saving state (optional, could add spinner)
+        const originalText = "Guardar Cambios";
+        const btn = document.querySelector('button[onclick="saveKnowledge()"]');
+        if (btn) {
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Guardando...`;
+            btn.disabled = true;
+        }
+
+        const res = await fetch(`${API_URL}/knowledge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+        });
+
+        if (!res.ok) throw new Error("Failed to save");
+
+        alert("¡Conocimiento actualizado correctamente!");
+        closeAdminModal();
+
+    } catch (e) {
+        alert("Error al guardar: " + e.message);
+    } finally {
+        // Reset button
+        const btn = document.querySelector('button[onclick="saveKnowledge()"]');
+        if (btn) {
+            btn.innerHTML = `<i class="fas fa-save"></i> Guardar Cambios`;
+            btn.disabled = false;
+        }
+    }
+}
+
+// --- ADD CLIENT LOGIC ---
+function openAddClientModal() {
+    document.getElementById('add-client-modal').classList.remove('hidden');
+}
+
+function closeAddClientModal() {
+    document.getElementById('add-client-modal').classList.add('hidden');
+}
+
+async function submitNewClient() {
+    const name = document.getElementById('new-client-name').value;
+    const cuit = document.getElementById('new-client-cuit').value;
+    const type = document.getElementById('new-client-type').value;
+    const taxes = document.getElementById('new-client-taxes').value;
+
+    if (!name || !cuit) {
+        alert("Nombre y CUIT son obligatorios");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/clients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                cuit: cuit,
+                client_type: type,
+                taxes: taxes
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Error al crear cliente");
+        }
+
+        alert("¡Cliente Creado Exitosamente!");
+        closeAddClientModal();
+
+        // Clear inputs
+        document.getElementById('new-client-name').value = '';
+        document.getElementById('new-client-cuit').value = '';
+
+        fetchClients(); // Refresh list
+
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
+
+async function deleteClient(id) {
+    if (!confirm("¿Estás seguro de eliminar este cliente?\nSe borrarán también todas sus obligaciones y NO se puede deshacer.")) return;
+
+    try {
+        const res = await fetch(`${API_URL}/clients/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error("Error al eliminar");
+
+        fetchClients(); // Refresh list
+        fetchDashboard(); // Refresh dashboard (remove deleted obligations)
+        alert("Cliente eliminado.");
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
+
+// Knowledge PDF Upload
+const knowledgePdfInput = document.getElementById('knowledge-pdf-upload');
+if (knowledgePdfInput) {
+    knowledgePdfInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const editor = document.getElementById('knowledge-editor');
+        const originalText = editor.value;
+        editor.value = "Procesando PDF y extrayendo texto... Por favor espere.";
+        editor.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch(`${API_URL}/knowledge/upload-pdf`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) throw new Error("Upload failed");
+
+            // Refresh content (fetch updated knowledge)
+            const refreshRes = await fetch(`${API_URL}/knowledge`);
+            const data = await refreshRes.json();
+            editor.value = data.content;
+
+            alert("¡PDF procesado! El texto se ha añadido al final del editor.\nRevisa y edita si es necesario.");
+
+        } catch (e) {
+            alert("Error al procesar PDF: " + e.message);
+            editor.value = originalText; // Revert
+        } finally {
+            editor.disabled = false;
+            knowledgePdfInput.value = '';
+        }
+    });
+}
+
+// Helper to avoid Timezone issues
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+// --- OVERDUE ALERT SYSTEM ---
+function checkOverdueAlert(data) {
+    console.log("Checking overdue alerts...", data.length, "items");
+    const overdue = data.filter(item => {
+        const isLate = new Date(item.due_date) < new Date() && item.status === 'Pending';
+        return isLate;
+    });
+    console.log("Overdue items found:", overdue.length);
+
+    if (overdue.length > 0) {
+        const modal = document.getElementById('overdue-modal');
+        const list = document.getElementById('overdue-list');
+
+        list.innerHTML = overdue.map(ob => `
+            <div class="flex items-center justify-between bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-800">${ob.client_name}</span>
+                    <div class="flex gap-2 text-xs">
+                        <span class="text-red-500 font-bold">${formatDate(ob.due_date)}</span>
+                        <span class="text-slate-400">${ob.tax_name}</span>
+                        <span class="text-indigo-600 font-bold bg-indigo-50 px-1 rounded">${ob.assignee || 'Sin Asignar'}</span>
+                    </div>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold text-xs">
+                    !
+                </div>
+            </div>
+        `).join('');
+
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeOverdueModal() {
+    document.getElementById('overdue-modal').classList.add('hidden');
 }

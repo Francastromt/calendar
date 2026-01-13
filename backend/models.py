@@ -40,5 +40,6 @@ class Obligation(SQLModel, table=True):
     status: str = "Pending" # Pending, Presented, Late
     tax_name: str = "IVA" # Enriched field for display
     notes: Optional[str] = None
+    assignee: Optional[str] = "Sin Asignar" # Veronica, Maria Cruz, etc.
     
     client: Client = Relationship(back_populates="obligations")

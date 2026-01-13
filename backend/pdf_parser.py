@@ -93,6 +93,21 @@ def parse_tax_calendar(pdf_path: str):
     
     return results
 
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """Extracts all text from a PDF file."""
+    text_content = []
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    text_content.append(text)
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return ""
+    
+    return "\n\n".join(text_content)
+
 if __name__ == "__main__":
     # Test with dummy file if exists
     print("PDF Parser module loaded.")

@@ -12,17 +12,17 @@ if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
 fi
 
-# Iniciar servidor en puerto 8002
+# Iniciar servidor en puerto 8005
 echo "Iniciando servidor..."
-python3 -m uvicorn main:app --port 8002 &
+python3 -m uvicorn main:app --port 8005 --reload &
 SERVER_PID=$!
 
 # Esperar
-sleep 4
+sleep 6
 
 # Abrir navegador
 echo "Abriendo aplicación..."
-open "http://localhost:8002"
+open "http://localhost:8005"
 
 echo ""
 echo "✅ Sistema corriendo."
