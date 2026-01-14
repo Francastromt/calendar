@@ -700,6 +700,24 @@ function formatDate(dateStr) {
 
 // --- OVERDUE ALERT SYSTEM ---
 function checkOverdueAlert(data) {
+    // 1. Check Date/Time
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sun, 6 = Sat
+    const hour = now.getHours();
+
+    // Condition: Only Mon(1) to Fri(5) AND after 10:00 AM
+    if (day === 0 || day === 6) return; // Weekend skip
+    if (hour < 10) return; // Too early skip
+
+    // 2. Check LocalStorage (Frequency Cap)
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const lastShown = localStorage.getItem('alert_last_shown');
+
+    if (lastShown === todayStr) {
+        console.log("Alert already shown today. Skipping.");
+        return;
+    }
+
     console.log("Checking overdue alerts...", data.length, "items");
     const overdue = data.filter(item => {
         const isLate = new Date(item.due_date) < new Date() && item.status === 'Pending';
@@ -728,6 +746,9 @@ function checkOverdueAlert(data) {
         `).join('');
 
         modal.classList.remove('hidden');
+
+        // Mark as shown for today
+        localStorage.setItem('alert_last_shown', todayStr);
     }
 }
 

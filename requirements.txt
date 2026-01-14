@@ -3,7 +3,7 @@ uvicorn
 python-multipart
 sqlmodel
 pdfplumber
-google-generativeai
+google-generativeai>=0.8.0
 pandas
 openpyxl
 psycopg2-binary

@@ -311,8 +311,8 @@ GENAI_KEY = os.getenv("GENAI_KEY", "AIzaSyB5qpyeK4Y87w1flk5hOxohXv0-E-H76A0")
 if not GENAI_KEY:
     print("WARNING: GENAI_KEY not found in environment variables.")
 genai.configure(api_key=GENAI_KEY)
-# Using 'gemini-flash-latest' to find the most stable available model (likely 1.5 Flash)
-model = genai.GenerativeModel('gemini-flash-latest')
+# Using 'gemini-1.5-flash' for better stability
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 class ChatRequest(BaseModel):
     message: str
